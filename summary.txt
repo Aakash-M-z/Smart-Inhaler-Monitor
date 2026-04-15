@@ -1,0 +1,206 @@
+Kiro
+AeroSense — Edge-AI Powered Inhaler Usage Monitor
+Full Application Summary
+1. Project Overview
+A full-stack health monitoring web application for asthma patients that tracks inhaler usage in real time, runs Edge AI analysis to detect dangerous patterns, generates smart alerts, and provides an LLM-powered AI health assistant (Groq) for personalised patient guidance.
+
+2. Complete Tech Stack
+Layer	Technology	Purpose
+Frontend Framework	React 19 + TypeScript	UI components
+Build Tool	Vite 7	Dev server + bundling
+Styling	Tailwind CSS v4 + shadcn/ui	Design system
+Routing	Wouter	Client-side routing
+Data Fetching	TanStack React Query	API caching + sync
+Charts	Recharts	Usage bar chart
+Backend	Node.js + Express 5	REST API server
+ORM	Drizzle ORM	Type-safe DB queries
+Database	SQLite (better-sqlite3)	Local persistent storage
+Validation	Zod	Schema validation
+Logging	Pino	Structured JSON logs
+AI (LLM)	Groq API — llama-3.3-70b	Health assistant chat
+Monorepo	pnpm workspaces	Package management
+3. Folder Structure
+Smart-Inhaler-Monitor/
+│
+├── .env                          ← GROQ_API_KEY, PORT, NODE_ENV
+│
+├── artifacts/
+│   ├── api-server/               ← Express backend (Port 5000)
+│   │   └── src/
+│   │       ├── index.ts          ← Server entry, loads .env, starts on :5000
+│   │       ├── app.ts            ← Express setup, CORS, middleware, error handler
+│   │       └── routes/
+│   │           ├── index.ts      ← Mounts all routers
+│   │           ├── health.ts     ← GET /api/healthz
+│   │           ├── inhaler.ts    ← All inhaler routes + Edge AI engine
+│   │           └── ai.ts         ← POST /api/ai/chat (Groq LLM)
+│   │
+│   └── inhaler-monitor/          ← React frontend (Port 5173)
+│       └── src/
+│           ├── App.tsx           ← Root: QueryClient, ThemeProvider, Router
+│           ├── main.tsx          ← Entry point
+│           ├── pages/
+│           │   ├── dashboard.tsx ← Main screen
+│           │   ├── history.tsx   ← Usage log + chart
+│           │   └── alerts.tsx    ← Alert history
+│           └── components/
+│               ├── layout.tsx    ← App shell (header + sidebar + AI chat)
+│               ├── ai-chat.tsx   ← Groq AI floating chat panel
+│               └── theme-provider.tsx
+│
+├── lib/
+│   ├── db/                       ← SQLite schema + Drizzle connection
+│   │   └── src/
+│   │       ├── index.ts          ← DB init, WAL mode, auto-migrate
+│   │       └── schema/
+│   │           └── inhaler.ts    ← Table definitions + indexes
+│   │
+│   ├── api-spec/
+│   │   └── openapi.yaml          ← OpenAPI 3.1 spec
+│   │
+│   ├── api-zod/                  ← Zod validation schemas
+│   │   └── src/generated/api.ts
+│   │
+│   └── api-client-react/         ← React Query hooks (auto-generated pattern)
+│       └── src/generated/api.ts
+│
+└── inhaler.db                    ← SQLite database file (auto-created)
+4. Database Schema
+inhaler_usage table
+id          INTEGER  PRIMARY KEY AUTOINCREMENT
+strength    TEXT     "Low" | "Medium" | "High"
+alert       INTEGER  0 or 1 (boolean)
+alert_type  TEXT     "low_strength" | "rapid_usage" | "high_usage" | "attack_risk" | null
+risk_score  INTEGER  0–100 (AI computed)
+severity    TEXT     "none" | "low" | "medium" | "high"
+created_at  TEXT     ISO datetime (indexed)
+alerts table
+id          INTEGER  PRIMARY KEY AUTOINCREMENT
+type        TEXT     "low_strength" | "rapid_usage" | "high_usage" | "attack_risk"
+message     TEXT     Human-readable alert message
+severity    TEXT     "low" | "medium" | "high"
+risk_score  INTEGER  0–100
+created_at  TEXT     ISO datetime (indexed)
+Indexes: idx_inhaler_usage_created_at, idx_inhaler_usage_alert_type, idx_alerts_created_at, idx_alerts_type
+
+5. API Endpoints
+Method	Endpoint	Description
+GET	/api/healthz	Server health check
+POST	/api/use-inhaler	Record dose + run Edge AI
+GET	/api/stats	Today's stats + smart status
+GET	/api/usage-logs	Full usage history
+GET	/api/alerts	All triggered alerts
+GET	/api/alerts/unread-count	Last 24h alert count (nav badge)
+GET	/api/usage-chart	Hourly chart data + trend
+GET	/api/insights	AI analytics (vs yesterday, peak time, etc.)
+POST	/api/ai/chat	Groq LLM health assistant
+6. Edge AI Engine (Core Logic)
+Located in 
+inhaler.ts
+
+This system simulates Edge AI locally using rule-based inference.
+In real-world deployment, this would be replaced by a TensorFlow Lite
+model running on the inhaler device (ESP32 or similar microcontroller).
+Sensor Simulation
+simulateInhalationStrength():
+  20% → Low    (PIFR < 30 L/min — poor technique)
+  50% → Medium (PIFR 30–60 L/min — normal)
+  30% → High   (PIFR > 60 L/min — strong)
+Risk Scoring Model (0–100)
+rapidScore   = min(usages_in_last_10min × 10, 40)
+dailyScore   = max(0, (usages_today - 2) × 5)
+strengthScore = Low → +30 | Medium → 0 | High → -5
+riskScore    = clamp(rapidScore + dailyScore + strengthScore, 0, 100)
+Alert Rules (priority order)
+Condition	Alert Type	Severity	Message
+riskScore ≥ 75 AND ≥2 recent uses	attack_risk	HIGH	Potential Asthma Attack Warning
+≥3 uses in last 10 min	rapid_usage	HIGH	Rapid usage detected
+Strength = Low	low_strength	LOW/MEDIUM	Improper inhalation technique
+≥6 uses today	high_usage	MEDIUM	High daily usage
+Smart Status (Dashboard pill)
+"Safe"      → Green  — riskScore < 50, alerts = 0, uses < 5
+"Moderate"  → Yellow — riskScore 50–74 OR alerts 1–2 OR uses 5–7
+"High Risk" → Red    — riskScore ≥ 75 OR alerts ≥ 3 OR uses ≥ 8
+7. Groq AI Health Assistant
+Located in 
+ai.ts
+
+Model: llama-3.3-70b-versatile via Groq API
+Key: Stored in .env as GROQ_API_KEY — never exposed to the browser
+Context injection: Before every LLM call, the backend fetches live patient data and injects it into the system prompt:
+Uses today, last usage time
+Alerts triggered today + types
+7-day average daily usage
+Current risk score
+Frontend: Floating chat button (bottom-right, all pages) with conversation history, typing indicator, suggested questions, and unread badge
+8. Frontend Pages
+Dashboard (/)
+Smart status pill (Green / Yellow / Red)
+AI Risk Score progress bar (0–100, colour-coded)
+Large "Use Inhaler" circular button with press animation
+3 stat cards: Uses Today, Last Usage, Alerts Today
+AI Insights panel: vs-yesterday %, 7-day average, peak hour, alert trend
+Recent activity log (last 5 entries with strength badges + risk scores)
+History (/history)
+Summary strip: total records, alert count, alert rate %
+Hourly bar chart with colour-coded bars (green/amber/red by count) + trend badge
+Full usage log with risk scores inline
+Alerts (/alerts)
+Summary strip: total, critical count, warning count
+Critical banner (red) when attack_risk or rapid_usage alerts exist
+Alert cards with left severity border, risk score, severity chip, timestamp
+9. How to Run
+# Terminal 1 — Backend (Port 5000)
+cd Smart-Inhaler-Monitor
+$env:PORT="5000"; $env:NODE_ENV="development"; pnpm --filter @workspace/api-server run dev
+
+# Terminal 2 — Frontend (Port 5173)
+cd Smart-Inhaler-Monitor
+pnpm --filter @workspace/inhaler-monitor run dev
+Open http://localhost:5173
+
+10. Complete Data Flow
+Patient presses "Use Inhaler"
+        │
+        ▼
+POST /api/use-inhaler
+        │
+        ├─ simulateInhalationStrength() → "Low" / "Medium" / "High"
+        │
+        ├─ edgeAIAnalyzer(strength)
+        │     ├─ DB: count usages in last 10 min
+        │     ├─ DB: count usages today
+        │     ├─ Compute: rapidScore + dailyScore + strengthScore
+        │     ├─ Clamp to riskScore [0–100]
+        │     └─ Apply alert rules → { alert, alertType, message, severity }
+        │
+        ├─ INSERT inhaler_usage (strength, alert, alertType, riskScore, severity)
+        ├─ if alert → INSERT alerts (type, message, severity, riskScore)
+        │
+        └─ Return JSON to frontend
+                │
+                ▼
+        React Query invalidates 6 queries simultaneously
+                │
+                ├─ Stats refresh → status pill + risk bar update
+                ├─ Usage logs refresh → recent activity updates
+                ├─ Alerts refresh → alerts page updates
+                ├─ Unread count refresh → nav badge updates
+                ├─ Chart refresh → hourly bar chart updates
+                └─ Insights refresh → AI insights panel updates
+                        │
+                        ▼
+                Toast notification shown:
+                  ✓ Dose Recorded (safe)
+                  ⚠️ Alert Triggered (warning)
+                  🚨 CRITICAL ALERT (attack_risk)
+
+Patient asks AI assistant a question
+        │
+        ▼
+POST /api/ai/chat { messages: [...] }
+        │
+        ├─ fetchPatientContext() — live DB data
+        ├─ buildSystemPrompt(context) — personalised system message
+        ├─ groq.chat.completions.create(llama-3.3-70b-versatile)
+        └─ Return { reply: "..." } to front
