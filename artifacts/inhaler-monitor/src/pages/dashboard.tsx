@@ -261,22 +261,42 @@ export function Dashboard() {
                 <Brain className="h-3.5 w-3.5" aria-hidden="true" />
                 AI Risk Score
               </span>
-              <span className={`font-bold tabular-nums ${riskScore >= 75 ? "text-destructive" : riskScore >= 50 ? "text-amber-500" : "text-emerald-600"}`}>
-                {riskScore}/100
+              <span className={`font-bold tabular-nums ${!stats || stats.totalToday === 0
+                  ? "text-muted-foreground"
+                  : riskScore >= 75 ? "text-destructive"
+                    : riskScore >= 50 ? "text-amber-500"
+                      : "text-emerald-600"
+                }`}>
+                {!stats || stats.totalToday === 0 ? "—" : `${riskScore}/100`}
               </span>
             </div>
             <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ease-out ${getRiskScoreColor(riskScore)}`}
-                style={{ width: `${riskScore}%` }}
-                role="progressbar"
-                aria-valuenow={riskScore}
-                aria-valuemin={0}
-                aria-valuemax={100}
-              />
+              {stats && stats.totalToday > 0 ? (
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ease-out ${getRiskScoreColor(riskScore)}`}
+                  style={{ width: `${Math.max(riskScore, 3)}%` }}
+                  role="progressbar"
+                  aria-valuenow={riskScore}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                />
+              ) : (
+                /* Striped placeholder when no doses recorded yet */
+                <div
+                  className="h-full w-full rounded-full"
+                  style={{
+                    background: "repeating-linear-gradient(90deg, transparent, transparent 6px, hsl(var(--muted-foreground)/0.15) 6px, hsl(var(--muted-foreground)/0.15) 8px)"
+                  }}
+                />
+              )}
             </div>
             <p className="text-[11px] text-center text-muted-foreground">
-              {riskScore >= 75 ? "⚠️ Seek medical attention" : riskScore >= 50 ? "Monitor symptoms closely" : riskScore >= 25 ? "Elevated — stay alert" : "Within safe range"}
+              {!stats || stats.totalToday === 0
+                ? "Use inhaler to start tracking risk"
+                : riskScore >= 75 ? "⚠️ Seek medical attention"
+                  : riskScore >= 50 ? "Monitor symptoms closely"
+                    : riskScore >= 25 ? "Elevated — stay alert"
+                      : "Within safe range"}
             </p>
           </div>
         </div>

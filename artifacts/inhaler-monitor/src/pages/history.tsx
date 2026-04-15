@@ -148,25 +148,35 @@ export function History() {
             {chartLoading ? (
               <Skeleton className="h-full w-full" />
             ) : chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="hour" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <Tooltip
-                    cursor={{ fill: "rgba(0,0,0,0.04)" }}
-                    contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.12)", fontSize: "13px" }}
-                    formatter={(value: number) => [`${value} dose${value !== 1 ? "s" : ""}`, "Usage"]}
-                  />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={44}>
-                    {chartData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={entry.count >= 3 ? "hsl(var(--destructive))" : entry.count >= 2 ? "hsl(38 92% 50%)" : "hsl(var(--primary))"}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              /* Render chart whenever data array exists — even if all counts are 0 */
+              <div className="relative h-full w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="hour" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip
+                      cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                      contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.12)", fontSize: "13px" }}
+                      formatter={(value: number) => [`${value} dose${value !== 1 ? "s" : ""}`, "Usage"]}
+                    />
+                    <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={44}>
+                      {chartData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.count >= 3 ? "hsl(var(--destructive))" : entry.count >= 2 ? "hsl(38 92% 50%)" : "hsl(var(--primary))"}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+                {/* Overlay when all counts are zero */}
+                {chartData.every((d) => d.count === 0) && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 pointer-events-none">
+                    <p className="text-sm font-medium text-muted-foreground">No doses recorded today</p>
+                    <p className="text-xs text-muted-foreground/70">Press "Use Inhaler" on the dashboard to log a dose</p>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
                 No usage data for today yet.
