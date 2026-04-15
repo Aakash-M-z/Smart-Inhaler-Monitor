@@ -1,0 +1,7 @@
+# Terminal 1 — Backend
+cd Smart-Inhaler-Monitor
+$env:PORT="5000"; $env:NODE_ENV="development"; pnpm --filter @workspace/api-server run dev
+
+# Terminal 2 — Frontend
+cd Smart-Inhaler-Monitor
+pnpm --filter @workspace/inhaler-monitor run dev
