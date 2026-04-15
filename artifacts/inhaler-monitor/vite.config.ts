@@ -1,8 +1,8 @@
 /**
  * Vite configuration for the Smart Inhaler Monitor frontend.
  *
- * Production:  VITE_API_URL is set to https://smart-inhaler-monitor.onrender.com
- *              No proxy needed — setBaseUrl() in main.tsx points directly to Render.
+ * Production:  VITE_API_URL = https://smart-inhaler-monitor.onrender.com
+ *              setBaseUrl() in main.tsx points all /api/* calls to Render.
  *
  * Development: VITE_API_URL is empty, Vite proxy forwards /api → localhost:5000.
  */
@@ -12,7 +12,6 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
 export default defineConfig(({ mode }) => {
-  // Load env vars so we can read VITE_API_URL at config time
   const env = loadEnv(mode, process.cwd(), "");
 
   const port = Number(env.PORT ?? "5173");
@@ -37,15 +36,17 @@ export default defineConfig(({ mode }) => {
     root: path.resolve(import.meta.dirname),
 
     build: {
-      // Vercel expects output in "dist" — we use dist/public internally
-      // but vercel.json maps outputDirectory to dist/public
       outDir: path.resolve(import.meta.dirname, "dist/public"),
       emptyOutDir: true,
-      // Raise chunk size warning threshold for production
       chunkSizeWarningLimit: 1000,
+
+      // Disable sourcemaps in production — removes the Rollup sourcemap
+      // resolution warning caused by third-party packages (e.g. @radix-ui)
+      // that ship sourcemaps with empty sourceRoot fields.
+      sourcemap: false,
+
       rollupOptions: {
         output: {
-          // Split vendor chunks for better caching
           manualChunks: {
             vendor: ["react", "react-dom"],
             ui: ["@radix-ui/react-dialog", "@radix-ui/react-toast", "lucide-react"],
@@ -53,13 +54,19 @@ export default defineConfig(({ mode }) => {
             query: ["@tanstack/react-query"],
           },
         },
+        // Suppress sourcemap warnings from third-party packages that ship
+        // broken/incomplete sourcemaps (e.g. @radix-ui/* with empty sourceRoot)
+        onwarn(warning, defaultHandler) {
+          if (warning.code === "SOURCEMAP_ERROR") return;
+          if (warning.message?.includes("sourcemap")) return;
+          defaultHandler(warning);
+        },
       },
     },
 
     server: {
       port,
       host: "0.0.0.0",
-      // Dev proxy: only active when VITE_API_URL is not set (local dev)
       ...(apiUrl
         ? {}
         : {

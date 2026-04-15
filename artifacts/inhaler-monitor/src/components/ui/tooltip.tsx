@@ -1,5 +1,9 @@
-"use client"
-
+/**
+ * Tooltip component — wraps @radix-ui/react-tooltip.
+ *
+ * Note: "use client" directive removed — this is a Vite/React project,
+ * not Next.js. That directive caused Rollup sourcemap resolution warnings.
+ */
 import * as React from "react"
 import * as TooltipPrimitive from "@radix-ui/react-tooltip"
 
