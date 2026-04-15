@@ -68,6 +68,7 @@ export function AIChat() {
 
     /**
      * Sends a message to the backend /api/ai/chat endpoint.
+     * Uses VITE_API_URL in production (Render), falls back to relative /api in dev.
      * The backend injects live patient context before calling Groq.
      */
     const sendMessage = async (text: string) => {
@@ -81,8 +82,12 @@ export function AIChat() {
         setInput("");
         setIsLoading(true);
 
+        // Resolve the correct API base — matches what setBaseUrl() uses in main.tsx
+        const apiBase = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
+        const endpoint = `${apiBase}/api/ai/chat`;
+
         try {
-            const response = await fetch("/api/ai/chat", {
+            const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ messages: updatedMessages }),

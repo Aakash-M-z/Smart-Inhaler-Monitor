@@ -1,59 +1,84 @@
 /**
  * Vite configuration for the Smart Inhaler Monitor frontend.
  *
- * Builds a React + TypeScript SPA with Tailwind CSS.
- * The dev server proxies /api requests to the backend at http://localhost:5000.
+ * Production:  VITE_API_URL is set to https://smart-inhaler-monitor.onrender.com
+ *              No proxy needed — setBaseUrl() in main.tsx points directly to Render.
  *
- * This system simulates Edge AI locally.
- * In real-world implementation, TensorFlow Lite can be used for on-device inference.
+ * Development: VITE_API_URL is empty, Vite proxy forwards /api → localhost:5000.
  */
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
-// Use PORT env var if provided (e.g. in CI/CD), otherwise default to 5173 for local dev
-const port = Number(process.env.PORT ?? "5173");
+export default defineConfig(({ mode }) => {
+  // Load env vars so we can read VITE_API_URL at config time
+  const env = loadEnv(mode, process.cwd(), "");
 
-// BASE_PATH allows deploying to a sub-path (e.g. /app/). Defaults to "/" for local dev.
-const basePath = process.env.BASE_PATH ?? "/";
+  const port = Number(env.PORT ?? "5173");
+  const basePath = env.BASE_PATH ?? "/";
+  const apiUrl = env.VITE_API_URL ?? "";
 
-export default defineConfig({
-  base: basePath,
-  plugins: [
-    react(),
-    tailwindcss(),
-  ],
-  resolve: {
-    alias: {
-      // "@" maps to the src directory for clean imports like "@/components/..."
-      "@": path.resolve(import.meta.dirname, "src"),
+  return {
+    base: basePath,
+
+    plugins: [
+      react(),
+      tailwindcss(),
+    ],
+
+    resolve: {
+      alias: {
+        "@": path.resolve(import.meta.dirname, "src"),
+      },
+      dedupe: ["react", "react-dom"],
     },
-    dedupe: ["react", "react-dom"],
-  },
-  root: path.resolve(import.meta.dirname),
-  build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
-    emptyOutDir: true,
-  },
-  server: {
-    port,
-    host: "0.0.0.0",
-    // Proxy API calls to the backend server during development
-    // This avoids CORS issues when running frontend and backend separately
-    proxy: {
-      "/api": {
-        target: "http://localhost:5000",
-        changeOrigin: true,
+
+    root: path.resolve(import.meta.dirname),
+
+    build: {
+      // Vercel expects output in "dist" — we use dist/public internally
+      // but vercel.json maps outputDirectory to dist/public
+      outDir: path.resolve(import.meta.dirname, "dist/public"),
+      emptyOutDir: true,
+      // Raise chunk size warning threshold for production
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          // Split vendor chunks for better caching
+          manualChunks: {
+            vendor: ["react", "react-dom"],
+            ui: ["@radix-ui/react-dialog", "@radix-ui/react-toast", "lucide-react"],
+            charts: ["recharts"],
+            query: ["@tanstack/react-query"],
+          },
+        },
       },
     },
-    fs: {
-      strict: true,
-      deny: ["**/.*"],
+
+    server: {
+      port,
+      host: "0.0.0.0",
+      // Dev proxy: only active when VITE_API_URL is not set (local dev)
+      ...(apiUrl
+        ? {}
+        : {
+          proxy: {
+            "/api": {
+              target: "http://localhost:5000",
+              changeOrigin: true,
+            },
+          },
+        }),
+      fs: {
+        strict: true,
+        deny: ["**/.*"],
+      },
     },
-  },
-  preview: {
-    port,
-    host: "0.0.0.0",
-  },
+
+    preview: {
+      port,
+      host: "0.0.0.0",
+    },
+  };
 });

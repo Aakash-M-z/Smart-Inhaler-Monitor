@@ -1,24 +1,30 @@
 /**
- * Application entry point.
+ * Application entry point — Smart Inhaler Monitor.
  *
- * Sets the API base URL to http://localhost:5000 for local development.
- * In production, the Vite proxy handles /api routing so no base URL is needed.
+ * API base URL resolution:
+ *   Production (Vercel):  VITE_API_URL = https://smart-inhaler-monitor.onrender.com
+ *                         setBaseUrl() points all /api/* calls to Render backend.
  *
- * This system simulates Edge AI locally.
- * In real-world implementation, TensorFlow Lite can be used for on-device inference.
+ *   Development (local):  VITE_API_URL is empty.
+ *                         Vite proxy forwards /api → http://localhost:5000.
+ *
+ * This system simulates Edge AI locally using rule-based inference.
+ * In real-world deployment, this would be replaced by a TensorFlow Lite model
+ * running on the inhaler device (ESP32 or similar microcontroller).
  */
 import { createRoot } from "react-dom/client";
 import { setBaseUrl } from "@workspace/api-client-react";
 import App from "./App";
 import "./index.css";
 
-// Point the API client to the backend server.
-// In development, Vite proxies /api → http://localhost:5000 automatically.
-// When running without the Vite dev server (e.g. serving the built frontend
-// separately), set VITE_API_BASE_URL in your .env to override this.
-const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
+// VITE_API_URL is injected at build time by Vite from the environment.
+// In production (Vercel), set this to: https://smart-inhaler-monitor.onrender.com
+// In development, leave it empty — the Vite dev server proxy handles /api routing.
+const apiBase = import.meta.env.VITE_API_URL ?? "";
+
 if (apiBase) {
-    setBaseUrl(apiBase);
+    // Strip trailing slash to avoid double-slash in URLs like //api/stats
+    setBaseUrl(apiBase.replace(/\/+$/, ""));
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
