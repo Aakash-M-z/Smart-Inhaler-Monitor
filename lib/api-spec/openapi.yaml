@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Inhaler Usage Monitor API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: inhaler
+    description: Inhaler usage operations
+  - name: alerts
+    description: Alert operations
 paths:
   /healthz:
     get:
@@ -24,6 +28,97 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /use-inhaler:
+    post:
+      operationId: useInhaler
+      tags: [inhaler]
+      summary: Record an inhaler usage event
+      description: Simulates pressing the inhaler and records usage with AI analysis
+      responses:
+        "201":
+          description: Usage recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageRecord"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [inhaler]
+      summary: Get usage statistics
+      description: Returns today's usage stats and summary
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageStats"
+
+  /usage-logs:
+    get:
+      operationId: getUsageLogs
+      tags: [inhaler]
+      summary: Get all usage logs
+      description: Returns all inhaler usage records
+      responses:
+        "200":
+          description: List of usage records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UsageRecord"
+
+  /alerts:
+    get:
+      operationId: getAlerts
+      tags: [alerts]
+      summary: Get alert history
+      description: Returns all triggered alerts
+      responses:
+        "200":
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+
+  /alerts/unread-count:
+    get:
+      operationId: getUnreadAlertCount
+      tags: [alerts]
+      summary: Get unread alert count
+      description: Returns number of unread/unseen alerts
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnreadAlertCount"
+
+  /usage-chart:
+    get:
+      operationId: getUsageChart
+      tags: [inhaler]
+      summary: Get usage chart data
+      description: Returns hourly usage counts for today
+      responses:
+        "200":
+          description: Chart data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChartDataPoint"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +129,96 @@ components:
       required:
         - status
 
+    InhalationStrength:
+      type: string
+      enum: [Low, Medium, High]
+
+    UsageRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        time:
+          type: string
+          description: Formatted time string (e.g. "10:30 AM")
+        timestamp:
+          type: string
+          format: date-time
+        strength:
+          $ref: "#/components/schemas/InhalationStrength"
+        alert:
+          type: boolean
+        alertType:
+          type: string
+          nullable: true
+      required:
+        - id
+        - time
+        - timestamp
+        - strength
+        - alert
+
+    UsageStats:
+      type: object
+      properties:
+        totalToday:
+          type: integer
+          description: Total inhaler uses today
+        lastUsageTime:
+          type: string
+          nullable: true
+          description: Time of last usage
+        alertsTriggeredToday:
+          type: integer
+          description: Number of alerts triggered today
+        status:
+          type: string
+          description: Overall health status (Good, Warning, Critical)
+      required:
+        - totalToday
+        - lastUsageTime
+        - alertsTriggeredToday
+        - status
+
+    Alert:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [high_usage, low_strength, rapid_usage]
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        time:
+          type: string
+      required:
+        - id
+        - type
+        - message
+        - timestamp
+        - time
+
+    UnreadAlertCount:
+      type: object
+      properties:
+        count:
+          type: integer
+      required:
+        - count
+
+    ChartDataPoint:
+      type: object
+      properties:
+        hour:
+          type: string
+          description: Hour label (e.g. "10 AM")
+        count:
+          type: integer
+          description: Number of uses in that hour
+      required:
+        - hour
+        - count
